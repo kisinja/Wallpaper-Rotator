@@ -1,12 +1,14 @@
-# Wallpaper Rotator — Cities & Old Jazz Aesthetic Edition
+# Wallpaper Rotator — Car Aesthetic Edition
 
 Automatically refreshes your Windows desktop background with a new
-scenic-city or old-jazz-aesthetic photo, on whatever schedule you want
-(default: every 6 hours).
+car-aesthetic photo (sports cars, supercars, automotive art), on whatever
+schedule you want (default: every 6 hours).
 
 ## What's in this folder
-- `wallpaper_rotator.py` — fetches a photo from Unsplash and sets it as your wallpaper
+- `wallpaper_rotator.py` — fetches a photo from Wallhaven and sets it as your wallpaper
 - `setup_task.bat` — registers the Windows scheduled task so it runs automatically
+- `.env` — holds your optional Wallhaven API key (not committed to Git)
+- `.gitignore` — keeps `.env` and other local files out of your repo
 - `README.md` — this file
 
 ## Setup (5 minutes)
@@ -14,32 +16,26 @@ scenic-city or old-jazz-aesthetic photo, on whatever schedule you want
 ### 1. Install Python (skip if you already have it)
 Download from https://python.org — during install, check **"Add Python to PATH"**.
 
-### 2. Install the one dependency
+### 2. Install the dependencies
 Open Command Prompt and run:
-```
-pip install requests
-```
 
-### 3. Get a free Unsplash API key
-1. Go to https://unsplash.com/developers and sign in / sign up
-2. Click **"New Application"**, accept the terms, name it anything (e.g. "My Wallpaper Rotator")
-3. Copy the **Access Key** shown on the app's page
+### 3. (Optional) Get a free Wallhaven API key
+Wallhaven works **without** a key for basic searches — you can skip this
+step entirely and the script will still work. An API key just raises your
+rate limit if you end up wanting more frequent refreshes later.
 
-### 4. Add your key to the script
-Open `wallpaper_rotator.py` in any text editor and replace:
-```python
-ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "YOUR_ACCESS_KEY_HERE")
-```
-with your key in place of `YOUR_ACCESS_KEY_HERE`.
+1. Go to https://wallhaven.cc and sign in / sign up
+2. Go to **Account Settings → API** and copy your key
 
-(Alternatively, set it as a permanent environment variable named
-`UNSPLASH_ACCESS_KEY` if you don't want the key sitting in the file.)
+### 4. Set up your `.env` file
+Create a file named `.env` in this folder (leave it blank if you skipped step 3):
+
+This file is already excluded from Git via `.gitignore`, so it stays local
+to your machine.
 
 ### 5. Test it once manually
 Double-click `wallpaper_rotator.py`, or run from Command Prompt:
-```
-python wallpaper_rotator.py
-```
+
 Your wallpaper should change immediately. Downloaded images are saved to
 `Pictures\AutoWallpapers` (only the last 10 are kept, older ones auto-delete).
 
@@ -57,31 +53,34 @@ Inside `wallpaper_rotator.py`, the `QUERIES` list controls what kind of
 photos get pulled:
 ```python
 QUERIES = [
-    "beautiful city aesthetic",
-    "aesthetic cityscape night",
-    "old European city street",
-    "scenic city skyline",
-    "vintage jazz club",
-    "old jazz aesthetic",
-    "1920s jazz bar",
-    "moody city street photography",
+    "porsche",
+    "sports car",
+    "supercar",
+    "car blueprint art",
+    "jdm car",
+    "automotive poster art",
+    "car aesthetic wallpaper",
 ]
 ```
 Add, remove, or edit these terms any time to steer the vibe — e.g. add
-`"Paris street at night"`, `"Tokyo neon city"`, or `"vintage saxophone jazz"`
-for a narrower look. Mix in more of one theme (cities vs. jazz) by just
-repeating similar terms — more entries for a theme means it gets picked
-more often.
+`"ferrari"`, `"lamborghini aesthetic"`, or `"car wallpaper 4k"` for a
+narrower look. Mix in more of one theme by just repeating similar terms —
+more entries for a theme means it gets picked more often.
 
 ## Managing the scheduled task
 - Open Task Scheduler (`Win + R` → `taskschd.msc`) → find **WallpaperRotator**
   under the Task Scheduler Library to pause, edit timing, or delete it.
 - To remove it entirely: `schtasks /delete /tn "WallpaperRotator" /f`
 
+## Pushing to GitHub
+The `.env` file (and anything else listed in `.gitignore`) will **not** be
+committed, so it's safe to push this whole folder. Anyone who clones the
+repo just needs to create their own `.env` file to run it (or leave it
+blank, since a Wallhaven key is optional).
+
 ## Notes
-- Unsplash's free tier allows 50 requests/hour, which is far more than
-  you'll need for this (max 4 requests/day even on the 6-hour schedule).
+- Wallhaven works without an API key; with one, rate limits are higher.
 - The script avoids repeating recent photos by remembering the last 40
-  photo IDs in `history.json`.
+  wallpaper IDs in `history.json`.
 - Everything runs locally — no data leaves your machine except the
-  request to Unsplash for a photo.
+  request to Wallhaven for a photo.

@@ -28,24 +28,26 @@ import requests
 
 # ---------------- CONFIG ----------------
 load_dotenv()
-ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "YOUR ACCESS KEY HERE")
+# ---------------- CONFIG ----------------
+WALLHAVEN_API_KEY = os.environ.get(
+    "WALLHAVEN_API_KEY", ""
+)  # optional, works without one
 
-# Feel free to tweak/add search terms to steer the style further
 QUERIES = [
-    "beautiful city aesthetic",
-    "aesthetic cityscape night",
-    "old European city street",
-    "scenic city skyline",
-    "vintage jazz club",
-    "old jazz aesthetic",
-    "1920s jazz bar",
-    "moody city street photography",
+    "porsche",
+    "sports car",
+    "supercar",
+    "car blueprint art",
+    "jdm car",
+    "automotive poster art",
+    "car aesthetic wallpaper",
 ]
 
 SAVE_DIR = Path.home() / "Pictures" / "AutoWallpapers"
 HISTORY_FILE = SAVE_DIR / "history.json"
-MAX_HISTORY = 40          # how many past photo IDs to remember (avoids repeats)
-KEEP_LAST_N_FILES = 10    # how many downloaded images to keep on disk
+MAX_HISTORY = 40
+KEEP_LAST_N_FILES = 10
+# -----------------------------------------   # how many downloaded images to keep on disk
 # -----------------------------------------
 
 
@@ -68,7 +70,7 @@ def cleanup_old_files():
     if not SAVE_DIR.exists():
         return
     files = sorted(
-        [f for f in SAVE_DIR.glob("wallpaper_*.jpg")],
+        [f for f in SAVE_DIR.glob("wallpaper_*.*")],
         key=lambda f: f.stat().st_mtime,
         reverse=True,
     )
@@ -81,41 +83,46 @@ def cleanup_old_files():
 
 def fetch_wallpaper():
     query = random.choice(QUERIES)
-    url = "https://api.unsplash.com/photos/random"
+    url = "https://wallhaven.cc/api/v1/search"
     params = {
-        "query": query,
-        "orientation": "landscape",
-        "content_filter": "high",
-        "client_id": ACCESS_KEY,
+        "q": query,
+        "categories": "111",  # general + anime + people
+        "purity": "100",  # SFW only
+        "sorting": "random",
+        "atleast": "1080x1920",  # decent quality for a laptop wallpaper
     }
+    if WALLHAVEN_API_KEY:
+        params["apikey"] = WALLHAVEN_API_KEY
+
+    resp = requests.get(url, params=params, timeout=15)
+    resp.raise_for_status()
+    results = resp.json().get("data", [])
+
+    if not results:
+        raise RuntimeError(f"No results found for query '{query}'")
 
     history = get_history()
-    data = None
-    for _ in range(5):  # try up to 5 times to avoid a repeat
-        resp = requests.get(url, params=params, timeout=15)
-        resp.raise_for_status()
-        candidate = resp.json()
-        if candidate["id"] not in history:
-            data = candidate
-            break
-        data = candidate  # fall back to last fetched if all attempts repeat
+    unseen = [w for w in results if w["id"] not in history]
+    choice = random.choice(unseen) if unseen else random.choice(results)
 
-    img_url = data["urls"]["full"]
-    photo_id = data["id"]
-    photographer = data["user"]["name"]
+    img_url = choice["path"]
+    wallpaper_id = choice["id"]
 
     img_resp = requests.get(img_url, timeout=30)
     img_resp.raise_for_status()
 
     SAVE_DIR.mkdir(parents=True, exist_ok=True)
-    filename = SAVE_DIR / f"wallpaper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+    ext = img_url.split(".")[-1]
+    filename = SAVE_DIR / f"wallpaper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
     filename.write_bytes(img_resp.content)
 
-    history.append(photo_id)
+    history.append(wallpaper_id)
     save_history(history)
     cleanup_old_files()
 
-    print(f"Downloaded: {filename.name}  (photo by {photographer} on Unsplash, query: '{query}')")
+    print(
+        f"Downloaded: {filename.name}  (Wallhaven ID: {wallpaper_id}, query: '{query}')"
+    )
     return filename
 
 
@@ -130,12 +137,6 @@ def set_wallpaper(path: Path):
 
 
 def main():
-    if ACCESS_KEY == "YOUR_ACCESS_KEY_HERE":
-        print("ERROR: You haven't set your Unsplash Access Key yet.")
-        print("Open wallpaper_rotator.py and paste it in, or set the")
-        print("UNSPLASH_ACCESS_KEY environment variable. See README.md.")
-        sys.exit(1)
-
     try:
         img_path = fetch_wallpaper()
         set_wallpaper(img_path)
