@@ -34,14 +34,40 @@ WALLHAVEN_API_KEY = os.environ.get(
 )  # optional, works without one
 
 QUERIES = [
-    "porsche",
-    "sports car",
-    "supercar",
-    "car blueprint art",
-    "jdm car",
-    "automotive poster art",
-    "car aesthetic wallpaper",
+    "porsche dark",
+    "porsche 911 gt",
+    "bugatti chiron",
+    "bugatti veyron",
+    "koenigsegg agera",
+    "koenigsegg jesko",
+    "hypercar",
+    "supercar dark",
+    "car blueprint",
+    "automotive poster",
 ]
+
+WEATHER_QUERY_SETS = {
+    "clear": [
+        "porsche sunny day",
+        "supercar bright daylight",
+        "koenigsegg outdoor shot",
+    ],
+    "cloudy": [
+        "porsche dark",
+        "bugatti chiron",
+        "koenigsegg agera",
+    ],
+    "rain": [
+        "supercar rain wallpaper",
+        "dark car aesthetic wallpaper",
+        "hypercar moody",
+    ],
+    "storm": [
+        "dark car aesthetic wallpaper",
+        "hypercar dramatic lighting",
+        "supercar night storm",
+    ],
+}
 
 SAVE_DIR = Path.home() / "Pictures" / "AutoWallpapers"
 HISTORY_FILE = SAVE_DIR / "history.json"
@@ -81,8 +107,33 @@ def cleanup_old_files():
             pass
 
 
+def get_weather_mood():
+    """Checks current weather near Thika, Kenya and maps it to a mood category."""
+    lat, lon = -1.0333, 37.0693  # Thika, Kenya — update if you're elsewhere
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {"latitude": lat, "longitude": lon, "current": "weather_code"}
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        code = resp.json()["current"]["weather_code"]
+    except Exception:
+        return "cloudy"  # safe fallback if the weather API hiccups
+
+    if code in (0, 1):
+        return "clear"
+    elif code in (2, 3, 45, 48):
+        return "cloudy"
+    elif 51 <= code <= 67:
+        return "rain"
+    elif 80 <= code <= 99:
+        return "storm"
+    return "cloudy"
+
+
 def fetch_wallpaper():
-    query = random.choice(QUERIES)
+    mood = get_weather_mood()
+    query = random.choice(WEATHER_QUERY_SETS.get(mood, QUERIES))
+    print(f"Weather mood: {mood}")
     url = "https://wallhaven.cc/api/v1/search"
     params = {
         "q": query,
