@@ -29,9 +29,7 @@ import requests
 # ---------------- CONFIG ----------------
 load_dotenv()
 # ---------------- CONFIG ----------------
-WALLHAVEN_API_KEY = os.environ.get(
-    "WALLHAVEN_API_KEY", ""
-)  # optional, works without one
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")  # optional, works without one
 
 QUERIES = [
     "porsche dark",
@@ -44,6 +42,11 @@ QUERIES = [
     "supercar dark",
     "car blueprint",
     "automotive poster",
+    "vintage jazz club",
+    "jazz saxophone aesthetic",
+    "old jazz bar",
+    "1920s jazz musician",
+    "moody jazz lounge",
 ]
 
 WEATHER_QUERY_SETS = {
@@ -51,21 +54,29 @@ WEATHER_QUERY_SETS = {
         "porsche sunny day",
         "supercar bright daylight",
         "koenigsegg outdoor shot",
+        "jazz cafe sunny window",
+        "vintage jazz record player",
     ],
     "cloudy": [
         "porsche dark",
         "bugatti chiron",
         "koenigsegg agera",
+        "vintage jazz club",
+        "old jazz bar",
     ],
     "rain": [
         "supercar rain wallpaper",
         "dark car aesthetic wallpaper",
         "hypercar moody",
+        "jazz club rainy night",
+        "moody jazz lounge",
     ],
     "storm": [
         "dark car aesthetic wallpaper",
         "hypercar dramatic lighting",
         "supercar night storm",
+        "smoky jazz bar",
+        "dark jazz aesthetic",
     ],
 }
 
@@ -134,46 +145,53 @@ def fetch_wallpaper():
     mood = get_weather_mood()
     query = random.choice(WEATHER_QUERY_SETS.get(mood, QUERIES))
     print(f"Weather mood: {mood}")
-    url = "https://wallhaven.cc/api/v1/search"
+    url = "https://api.pexels.com/v1/search"
+    headers = {"Authorization": PEXELS_API_KEY}
     params = {
-        "q": query,
-        "categories": "111",  # general + anime + people
-        "purity": "100",  # SFW only
-        "sorting": "random",
-        "atleast": "1080x1920",  # decent quality for a laptop wallpaper
+        "query": query,
+        "orientation": "portrait",
+        "per_page": 20,
     }
-    if WALLHAVEN_API_KEY:
-        params["apikey"] = WALLHAVEN_API_KEY
-
-    resp = requests.get(url, params=params, timeout=15)
+    resp = requests.get(url, headers=headers, params=params, timeout=15)
     resp.raise_for_status()
-    results = resp.json().get("data", [])
+    results = resp.json().get("photos", [])
+
+    attempts = 0
+    while not results and attempts < 3:
+        query = random.choice(QUERIES)
+        params["query"] = query
+        resp = requests.get(url, headers=headers, params=params, timeout=15)
+        resp.raise_for_status()
+        results = resp.json().get("photos", [])
+        attempts += 1
 
     if not results:
-        raise RuntimeError(f"No results found for query '{query}'")
+        raise RuntimeError(f"No wallpapers found after {attempts + 1} attempts.")
 
     history = get_history()
-    unseen = [w for w in results if w["id"] not in history]
+    unseen = [p for p in results if str(p["id"]) not in history]
     choice = random.choice(unseen) if unseen else random.choice(results)
 
-    img_url = choice["path"]
-    wallpaper_id = choice["id"]
+    img_url = choice["src"]["original"]
+    photo_id = str(choice["id"])
+    photographer = choice["photographer"]
 
     img_resp = requests.get(img_url, timeout=30)
     img_resp.raise_for_status()
 
     SAVE_DIR.mkdir(parents=True, exist_ok=True)
-    ext = img_url.split(".")[-1]
+    ext = img_url.split(".")[-1].split("?")[0]  # get file extension
     filename = SAVE_DIR / f"wallpaper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
     filename.write_bytes(img_resp.content)
 
-    history.append(wallpaper_id)
+    history.append(photo_id)
     save_history(history)
     cleanup_old_files()
 
     print(
-        f"Downloaded: {filename.name}  (Wallhaven ID: {wallpaper_id}, query: '{query}')"
+        f"Downloaded: {filename.name}  (photo by {photographer} on Pexels, query: '{query}')"
     )
+
     return filename
 
 
@@ -188,6 +206,9 @@ def set_wallpaper(path: Path):
 
 
 def main():
+    if not PEXELS_API_KEY:
+        print("WARNING: No PEXELS_API_KEY set. You may hit API limits.")
+        sys.exit(1)
     try:
         img_path = fetch_wallpaper()
         set_wallpaper(img_path)
